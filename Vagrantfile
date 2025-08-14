@@ -13,18 +13,46 @@ Vagrant.configure("2") do |config|
   # Every Vagrant development environment requires a box. You can search for
   # boxes at https://vagrantcloud.com/search.
   config.vm.define "master" do |master|
-    master.vm.box = "generic/ubuntu1804"
+    master.vm.box = "generic/ubuntu2004"
     master.vm.hostname = "master"
+    master.vm.provision "file", source: "~/.ssh/master_key.pub", destination: "/home/vagrant/master_key.pub"
+    master.vm.provision "shell", inline: <<-SHELL
+      mkdir -p /home/vagrant/.ssh
+      cat /home/vagrant/master_key.pub >> /home/vagrant/.ssh/authorized_keys
+      chown -R vagrant:vagrant /home/vagrant/.ssh
+      chmod 600 /home/vagrant/.ssh/authorized_keys
+    SHELL
     master.vm.provider "libvirt" do |lv|
     end
   end
 
-  config.vm.define "worker" do |worker|
-      worker.vm.box = "generic/ubuntu1804"
-      worker.vm.hostname = "worker"
-      worker.vm.provider "libvirt" do |lv|
+  config.vm.define "worker1" do |worker1|
+      worker1.vm.box = "generic/ubuntu2004"
+      worker1.vm.hostname = "worker1"
+      worker1.vm.provision "file", source: "~/.ssh/worker1_key.pub", destination: "/home/vagrant/worker1_key.pub"
+      worker1.vm.provision "shell", inline: <<-SHELL
+        mkdir -p /home/vagrant/.ssh
+        cat /home/vagrant/worker1_key.pub >> /home/vagrant/.ssh/authorized_keys
+        chown -R vagrant:vagrant /home/vagrant/.ssh
+        chmod 600 /home/vagrant/.ssh/authorized_keys
+      SHELL
+      worker1.vm.provider "libvirt" do |lv|
       end
   end
+
+  config.vm.define "worker2" do |worker2|
+        worker2.vm.box = "generic/ubuntu2004"
+        worker2.vm.hostname = "worker2"
+        worker2.vm.provision "file", source: "~/.ssh/worker2_key.pub", destination: "/home/vagrant/worker2_key.pub"
+        worker2.vm.provision "shell", inline: <<-SHELL
+          mkdir -p /home/vagrant/.ssh
+          cat /home/vagrant/worker2_key.pub >> /home/vagrant/.ssh/authorized_keys
+          chown -R vagrant:vagrant /home/vagrant/.ssh
+          chmod 600 /home/vagrant/.ssh/authorized_keys
+        SHELL
+        worker2.vm.provider "libvirt" do |lv|
+        end
+    end
   # Disable automatic box update checking. If you disable this, then
   # boxes will only be checked for updates when the user runs
   # `vagrant box outdated`. This is not recommended.
