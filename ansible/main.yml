@@ -1,14 +1,7 @@
 ---
-- name: Baseline Configuration
-  hosts: workers
+- name: Install Base packages
+  hosts: all
   remote_user: vagrant
   become: yes
   roles:
     - role: base
-
-- name: Apache
-  hosts: workers
-  remote_user: vagrant
-  become: yes
-  roles:
-    - role: apache

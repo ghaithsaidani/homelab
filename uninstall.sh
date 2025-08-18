@@ -1,0 +1,34 @@
+#!/bin/bash
+
+
+
+set -e
+
+# variables
+KEYS_DIR="$HOME/.ssh"
+source "$HOME/.ssh/cluster.env"
+
+# destroy all vms
+echo  -e "\033[1;31m# Destroying VMs\033[0m"
+vagrant destroy -f
+
+
+
+# delete ssh keys configuration
+rm -r "$KEYS_DIR/vagrant_keys"
+rm "$KEYS_DIR/config"
+
+
+# Delete nodes IP addresses from known hosts
+for i in $(seq 1 "$NUM_MASTERS"); do
+ssh-keygen -f "$KEYS_DIR/known_hosts" -R "10.0.1.1$((i-1))"
+done
+for i in $(seq 1 "$NUM_WORKERS"); do
+ssh-keygen -f "$KEYS_DIR/known_hosts" -R "10.0.2.1$((i-1))"
+done
+
+
+rm "$KEYS_DIR/cluster.env"
+
+
+

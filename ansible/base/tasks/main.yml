@@ -1,6 +1,0 @@
----
-# tasks file for base
-- name: Update APT Cache
-  apt:
-    update_cache: true
-    cache_valid_time: 3600

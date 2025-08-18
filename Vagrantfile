@@ -5,6 +5,13 @@
 # configures the configuration version (we support older styles for
 # backwards compatibility). Please don't change it unless you know what
 # you're doing.
+
+# variables
+VAGRANT_HOME= "/home/vagrant"
+NUM_MASTERS = ENV['NUM_MASTERS'] ? ENV['NUM_MASTERS'].to_i : 1
+NUM_WORKERS = ENV['NUM_WORKERS'] ? ENV['NUM_WORKERS'].to_i : 2
+
+# configuration
 Vagrant.configure("2") do |config|
   # The most common configuration options are documented and commented below.
   # For a complete reference, please see the online documentation at
@@ -12,47 +19,54 @@ Vagrant.configure("2") do |config|
 
   # Every Vagrant development environment requires a box. You can search for
   # boxes at https://vagrantcloud.com/search.
-  config.vm.define "master" do |master|
+
+#   config.vm.provision "shell", inline: <<-SHELL
+#     apt-get update -y
+#     apt-get install net-tools
+#   SHELL
+  (1..NUM_MASTERS).each do |i|
+
+  config.vm.define "master#{i}" do |master|
     master.vm.box = "generic/ubuntu2004"
-    master.vm.hostname = "master"
-    master.vm.provision "file", source: "~/.ssh/master_key.pub", destination: "/home/vagrant/master_key.pub"
-    master.vm.provision "shell", inline: <<-SHELL
-      mkdir -p /home/vagrant/.ssh
-      cat /home/vagrant/master_key.pub >> /home/vagrant/.ssh/authorized_keys
-      chown -R vagrant:vagrant /home/vagrant/.ssh
-      chmod 600 /home/vagrant/.ssh/authorized_keys
+    master.vm.hostname = "master#{i}"
+    master.vm.network "private_network", ip: "10.0.1.1#{i-1}"
+    master.vm.provision "file", source: "~/.ssh/vagrant_keys/master#{i}_key.pub", destination: "#{VAGRANT_HOME}/master#{i}_key.pub"
+    master.vm.provision "shell", inline: <<-SHELL, args: [i]
+      mkdir -p "#{VAGRANT_HOME}/.ssh"
+      cat "#{VAGRANT_HOME}/master$1_key.pub" >> "#{VAGRANT_HOME}/.ssh/authorized_keys"
+      chown -R vagrant:vagrant "#{VAGRANT_HOME}/.ssh"
+      chmod 600 "#{VAGRANT_HOME}/.ssh/authorized_keys"
     SHELL
     master.vm.provider "libvirt" do |lv|
+        lv.default_prefix = ""
+        lv.memory = 4048
+        lv.cpus = 2
     end
   end
 
-  config.vm.define "worker1" do |worker1|
-      worker1.vm.box = "generic/ubuntu2004"
-      worker1.vm.hostname = "worker1"
-      worker1.vm.provision "file", source: "~/.ssh/worker1_key.pub", destination: "/home/vagrant/worker1_key.pub"
-      worker1.vm.provision "shell", inline: <<-SHELL
-        mkdir -p /home/vagrant/.ssh
-        cat /home/vagrant/worker1_key.pub >> /home/vagrant/.ssh/authorized_keys
-        chown -R vagrant:vagrant /home/vagrant/.ssh
-        chmod 600 /home/vagrant/.ssh/authorized_keys
+  end
+
+  (1..NUM_WORKERS).each do |i|
+
+  config.vm.define "worker#{i}" do |worker|
+      worker.vm.box = "generic/ubuntu2004"
+      worker.vm.hostname = "worker#{i}"
+      worker.vm.network "private_network", ip: "10.0.2.1#{i-1}"
+      worker.vm.provision "file", source: "~/.ssh/vagrant_keys/worker#{i}_key.pub", destination: "#{VAGRANT_HOME}/worker#{i}_key.pub"
+      worker.vm.provision "shell", inline: <<-SHELL, args: [i]
+            mkdir -p "#{VAGRANT_HOME}/.ssh"
+            cat "#{VAGRANT_HOME}/worker$1_key.pub" >> "#{VAGRANT_HOME}/.ssh/authorized_keys"
+            chown -R vagrant:vagrant "#{VAGRANT_HOME}/.ssh"
+            chmod 600 "#{VAGRANT_HOME}/.ssh/authorized_keys"
       SHELL
-      worker1.vm.provider "libvirt" do |lv|
+      worker.vm.provider "libvirt" do |lv|
+          lv.default_prefix = ""
+          lv.memory = 2048
+          lv.cpus = 1
       end
   end
 
-  config.vm.define "worker2" do |worker2|
-        worker2.vm.box = "generic/ubuntu2004"
-        worker2.vm.hostname = "worker2"
-        worker2.vm.provision "file", source: "~/.ssh/worker2_key.pub", destination: "/home/vagrant/worker2_key.pub"
-        worker2.vm.provision "shell", inline: <<-SHELL
-          mkdir -p /home/vagrant/.ssh
-          cat /home/vagrant/worker2_key.pub >> /home/vagrant/.ssh/authorized_keys
-          chown -R vagrant:vagrant /home/vagrant/.ssh
-          chmod 600 /home/vagrant/.ssh/authorized_keys
-        SHELL
-        worker2.vm.provider "libvirt" do |lv|
-        end
-    end
+  end
   # Disable automatic box update checking. If you disable this, then
   # boxes will only be checked for updates when the user runs
   # `vagrant box outdated`. This is not recommended.

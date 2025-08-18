@@ -1,4 +1,4 @@
-# Devops Stack On Promise
+# HomeLab
 
 ## 📌 Project Overview
 This project automates the installation of **three Virtual Machines (VMs)** on a **KVM hypervisor** using **Vagrant** and provisions them into a **Kubernetes cluster** with:
@@ -62,17 +62,17 @@ sudo virsh net-start vagrant-libvirt
     2. Add:
     ```bash
    Host master
-    HostName 192.168.x.x #master vm ip address
+    HostName 10.0.0.10 #master vm ip address
     User vagrant
     IdentityFile ~/.ssh/master_key
 
     Host worker1
-    HostName 192.168.x.x #worker1 vm ip address
+    HostName 10.0.0.11 #worker1 vm ip address
     User vagrant
     IdentityFile ~/.ssh/worker1_key
     
     Host worker2
-    HostName 192.168.x.x #worker2 vm ip address
+    HostName 10.0.0.12 #worker2 vm ip address
     User vagrant
     IdentityFile ~/.ssh/worker2_key
    ```

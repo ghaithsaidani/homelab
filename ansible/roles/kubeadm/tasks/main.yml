@@ -1,0 +1,44 @@
+---
+# tasks file for kubeadm
+
+#- name: Install Kubeadm on masters
+#  shell: curl -fsSL https://luc.run/kubeadm/controlplane.sh | sh
+#  when: "'masters' in group_names"
+
+- name: Download kubeadm master script
+  get_url:
+    url: https://luc.run/kubeadm/controlplane.sh
+    dest: /tmp/controlplane.sh
+    mode: '0755'
+  when: "'masters' in group_names"
+#
+- name: Run kubeadm master script asynchronously
+  command: bash /tmp/controlplane.sh
+  when: "'masters' in group_names"
+
+- name: Download kubeadm worker script
+  get_url:
+    url: https://luc.run/kubeadm/worker.sh
+    dest: /tmp/worker.sh
+    mode: '0755'
+  when: "'workers' in group_names"
+
+- name: Run kubeadm worker script asynchronously
+  command: bash /tmp/worker.sh
+  when: "'workers' in group_names"
+
+# Download kubeadm master script
+#- name: Download kubeadm master script
+#  get_url:
+#    url: https://luc.run/kubeadm/controlplane.sh
+#    dest: /tmp/controlplane.sh
+#    mode: '0755'
+#  when: "'masters' in group_names"
+#
+## Download kubeadm worker script
+#- name: Download kubeadm worker script
+#  get_url:
+#    url: https://luc.run/kubeadm/worker.sh
+#    dest: /tmp/worker.sh
+#    mode: '0755'
+#  when: "'workers' in group_names"
