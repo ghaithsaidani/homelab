@@ -17,6 +17,7 @@ vagrant destroy -f
 # delete ssh keys configuration
 rm -r "$KEYS_DIR/vagrant_keys"
 rm "$KEYS_DIR/config"
+rm "./ansible/inventory"
 
 
 # Delete nodes IP addresses from known hosts

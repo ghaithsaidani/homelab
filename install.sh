@@ -1,14 +1,16 @@
 #!/bin/bash
 
+
 set -e
 
 # variables
 KEYS_DIR="$HOME/.ssh/vagrant_keys"
 CONFIG_FILE="$HOME/.ssh/config"
+INVENTORY_FILE="./ansible/inventory"
 NUM_MASTERS=1
 NUM_WORKERS=2
 
-# Parse arguments
+
 for arg in "$@"; do
   case $arg in
     --masters=*)
@@ -26,9 +28,6 @@ for arg in "$@"; do
   esac
 done
 
-echo "🔹 Number of masters: $NUM_MASTERS"
-echo "🔹 Number of workers: $NUM_WORKERS"
-
 touch "$HOME/cluster.env"
 
 # Save cluster size to cluster.env
@@ -40,12 +39,14 @@ EOF
 # Directory for SSH keys and File for config
 mkdir -p "$KEYS_DIR"
 touch "$CONFIG_FILE"
-
-
-
+touch "$INVENTORY_FILE"
 
 # add the correct configuration to config file
+cat >> "$INVENTORY_FILE" <<EOF
+[masters]
+EOF
 for i in $(seq 1 "$NUM_MASTERS"); do
+
 # ssh key generation fo masters
 ssh-keygen -t rsa -b 4096 -f "$KEYS_DIR/master${i}_key" -N "" <<< y >/dev/null 2>&1
 
@@ -56,10 +57,17 @@ Host master${i}
   User vagrant
   IdentityFile $KEYS_DIR/master${i}_key
 EOF
+cat >> "$INVENTORY_FILE" <<EOF
+master${i}
+EOF
 done
+
+cat >> "$INVENTORY_FILE" <<EOF
+[workers]
+EOF
 for i in $(seq 1 "$NUM_WORKERS"); do
 
-# ssh key generation fo workers
+# ssh key generation for workers
 ssh-keygen -t rsa -b 4096 -f "$KEYS_DIR/worker${i}_key" -N "" <<< y >/dev/null 2>&1
 
 # config file edit for workers
@@ -69,7 +77,15 @@ Host worker${i}
   User vagrant
   IdentityFile $KEYS_DIR/worker${i}_key
 EOF
+cat >> "$INVENTORY_FILE" <<EOF
+worker${i}
+EOF
 done
+
+cat >> "$INVENTORY_FILE" <<EOF
+[all:vars]
+ansible_python_interpreter=/usr/bin/python3
+EOF
 
 chmod 600 "$CONFIG_FILE"
 

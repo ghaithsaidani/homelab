@@ -1,6 +1,7 @@
 [masters]
-master
-
+master1
 [workers]
 worker1
 worker2
+[all:vars]
+ansible_python_interpreter=/usr/bin/python3
