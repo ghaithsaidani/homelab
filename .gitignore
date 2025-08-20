@@ -1,3 +1,5 @@
 .idea
 .vagrant
 instructions.md
+ansible/cluster.env
+ansible/inventory
