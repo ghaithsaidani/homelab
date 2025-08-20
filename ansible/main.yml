@@ -1,7 +1,21 @@
 ---
-- name: Install Base packages
+- name: Install Prerequisite
   hosts: all
   remote_user: vagrant
   become: yes
   roles:
-    - role: base
+    - role: common
+
+- name: Init cluster from master
+  hosts: masters
+  remote_user: vagrant
+  become: yes
+  roles:
+    - role: master
+
+- name: Join cluster from workers
+  hosts: workers
+  remote_user: vagrant
+  become: yes
+  roles:
+    - role: worker

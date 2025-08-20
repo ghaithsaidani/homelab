@@ -1,0 +1,8 @@
+---
+# tasks file for roles/worker
+
+- name: Join worker nodes to the cluster
+  command: "{{ hostvars[groups['masters'][0]].kubeadm_join_command }}"
+  when:
+    - hostvars[groups['masters'][0]].kubeadm_join_command is defined
+  register: join_result

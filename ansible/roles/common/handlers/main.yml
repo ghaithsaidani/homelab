@@ -1,0 +1,4 @@
+---
+# handlers file for roles/common
+- name: reload sysctl
+  command: sysctl --system

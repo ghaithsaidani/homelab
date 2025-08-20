@@ -6,10 +6,19 @@
 # backwards compatibility). Please don't change it unless you know what
 # you're doing.
 
+cluster_env = File.expand_path("./ansible/cluster.env")
+if File.exist?(cluster_env)
+  File.readlines(cluster_env).each do |line|
+    key, value = line.strip.split("=")
+    ENV[key] ||= value
+  end
+end
+
 # variables
 VAGRANT_HOME= "/home/vagrant"
-NUM_MASTERS = ENV['NUM_MASTERS'] ? ENV['NUM_MASTERS'].to_i : 1
-NUM_WORKERS = ENV['NUM_WORKERS'] ? ENV['NUM_WORKERS'].to_i : 2
+NUM_MASTERS = (ENV['NUM_MASTERS'] || 1).to_i
+NUM_WORKERS = (ENV['NUM_WORKERS'] || 2).to_i
+
 
 # configuration
 Vagrant.configure("2") do |config|
@@ -29,7 +38,7 @@ Vagrant.configure("2") do |config|
   config.vm.define "master#{i}" do |master|
     master.vm.box = "generic/ubuntu2004"
     master.vm.hostname = "master#{i}"
-    master.vm.network "private_network", ip: "10.0.1.1#{i-1}"
+    master.vm.network "private_network", ip: "10.0.1.#{i+10}"
     master.vm.provision "file", source: "~/.ssh/vagrant_keys/master#{i}_key.pub", destination: "#{VAGRANT_HOME}/master#{i}_key.pub"
     master.vm.provision "shell", inline: <<-SHELL, args: [i]
       mkdir -p "#{VAGRANT_HOME}/.ssh"
@@ -51,7 +60,7 @@ Vagrant.configure("2") do |config|
   config.vm.define "worker#{i}" do |worker|
       worker.vm.box = "generic/ubuntu2004"
       worker.vm.hostname = "worker#{i}"
-      worker.vm.network "private_network", ip: "10.0.2.1#{i-1}"
+      worker.vm.network "private_network", ip: "10.0.1.#{i+100}"
       worker.vm.provision "file", source: "~/.ssh/vagrant_keys/worker#{i}_key.pub", destination: "#{VAGRANT_HOME}/worker#{i}_key.pub"
       worker.vm.provision "shell", inline: <<-SHELL, args: [i]
             mkdir -p "#{VAGRANT_HOME}/.ssh"

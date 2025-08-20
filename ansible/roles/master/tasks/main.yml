@@ -1,0 +1,131 @@
+---
+# tasks file for roles/master
+
+- name: Check current IP forwarding status
+  command: cat /proc/sys/net/ipv4/ip_forward
+  register: ip_forward_current
+
+- name: Show current IP forwarding status
+  debug:
+    msg: "Current IP forwarding status: {{ ip_forward_current.stdout }}"
+
+- name: Apply all sysctl settings
+  command: sysctl --system
+  when: ip_forward_current.stdout != "1"
+
+- name: Enable IP forwarding immediately using sysctl command
+  command: sysctl -w net.ipv4.ip_forward=1
+  when: ip_forward_current.stdout != "1"
+
+- name: Verify IP forwarding is now enabled
+  command: cat /proc/sys/net/ipv4/ip_forward
+  register: ip_forward_verify
+
+- name: Show verified IP forwarding status
+  debug:
+    msg: "Verified IP forwarding status: {{ ip_forward_verify.stdout }}"
+
+- name: Fail if IP forwarding is still not enabled
+  fail:
+    msg: "IP forwarding is still not enabled. Manual intervention required."
+  when: ip_forward_verify.stdout != "1"
+
+- name: Run kubeadm init on master
+  command: >
+    kubeadm init
+    --pod-network-cidr=192.168.0.0/16
+    --apiserver-advertise-address={{ ansible_eth1.ipv4.address }}
+    --node-name={{ inventory_hostname }}
+    --ignore-preflight-errors=FileContent--proc-sys-net-ipv4-ip_forward
+  args:
+    creates: /etc/kubernetes/admin.conf
+  register: kubeadm_init_output
+
+- name: Check if admin.conf exists
+  stat:
+    path: /etc/kubernetes/admin.conf
+  register: admin_conf_stat
+
+- name: Fail if admin.conf doesn't exist
+  fail:
+    msg: "Kubernetes admin.conf file doesn't exist. kubeadm init may have failed."
+  when: not admin_conf_stat.stat.exists
+
+- name: Create .kube directory for master user
+  file:
+    path: "/home/{{ ansible_user }}/.kube"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0755'
+
+- name: Copy admin.conf to user's kube config
+  copy:
+    src: /etc/kubernetes/admin.conf
+    dest: "/home/{{ ansible_user }}/.kube/config"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0644'
+    remote_src: yes
+
+- name: Verify kubectl works
+  command: kubectl get nodes
+  register: kubectl_test
+  environment:
+    KUBECONFIG: "/home/{{ ansible_user }}/.kube/config"
+
+- name: Show kubectl test result
+  debug:
+    var: kubectl_test.stdout_lines
+
+- name: Get kubeadm join command
+  shell: kubeadm token create --print-join-command
+  register: kubeadm_join_cmd
+  environment:
+    KUBECONFIG: "/home/{{ ansible_user }}/.kube/config"
+  when: kubectl_test is defined and not kubectl_test.failed
+
+- name: Set join command fact
+  set_fact:
+    kubeadm_join_command: "{{ kubeadm_join_cmd.stdout }}"
+  when: kubeadm_join_cmd is defined and kubeadm_join_cmd.stdout is defined
+
+- name: Show join command for debugging
+  debug:
+    var: kubeadm_join_command
+  when: kubeadm_join_command is defined
+
+- name: Deploy Calico operator
+  command: kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.0/manifests/tigera-operator.yaml
+  environment:
+    KUBECONFIG: "/home/{{ ansible_user }}/.kube/config"
+  args:
+    creates: /tmp/tigera-operator-applied
+  register: calico_operator
+  ignore_errors: yes
+
+- name: Create marker file for Calico operator
+  file:
+    path: /tmp/tigera-operator-applied
+    state: touch
+  when: calico_operator.changed
+
+- name: Download Calico custom resources
+  get_url:
+    url: https://raw.githubusercontent.com/projectcalico/calico/v3.28.0/manifests/custom-resources.yaml
+    dest: /tmp/custom-resources.yaml
+    mode: '0644'
+
+- name: Apply Calico custom resources
+  command: kubectl apply -f /tmp/custom-resources.yaml
+  environment:
+    KUBECONFIG: "/home/{{ ansible_user }}/.kube/config"
+  args:
+    creates: /tmp/calico-custom-resources-applied
+  register: calico_custom_resources
+
+- name: Create marker file for Calico custom resources
+  file:
+    path: /tmp/calico-custom-resources-applied
+    state: touch
+  when: calico_custom_resources.changed

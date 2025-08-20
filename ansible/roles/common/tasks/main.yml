@@ -1,0 +1,228 @@
+---
+# tasks file for roles/common
+#- name: Copy script on each node
+#  copy:
+#    src: common.sh
+#    dest: /tmp/common.sh
+#    mode: '0755'
+#
+#- name: Run script
+#  command: /tmp/common.sh
+- name: Disable swap
+  command: swapoff -a
+
+- name: Disable swap permanently in fstab
+  shell: sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
+
+- name: Load required kernel modules for Kubernetes
+  copy:
+    dest: /etc/modules-load.d/k8s.conf
+    content: |
+      overlay
+      br_netfilter
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Load overlay module
+  modprobe:
+    name: overlay
+    state: present
+
+- name: Load br_netfilter module
+  modprobe:
+    name: br_netfilter
+    state: present
+
+- name: Create Kubernetes sysctl config
+  copy:
+    dest: /etc/sysctl.d/k8s.conf
+    content: |
+      net.bridge.bridge-nf-call-iptables  = 1
+      net.bridge.bridge-nf-call-ip6tables = 1
+      net.ipv4.ip_forward                 = 1
+    owner: root
+    group: root
+    mode: '0644'
+  notify: reload sysctl
+
+- name: Ensure br_netfilter is loaded
+  modprobe:
+    name: br_netfilter
+    state: present
+
+- name: Ensure overlay is loaded
+  modprobe:
+    name: overlay
+    state: present
+
+- name: Check sysctl values for Kubernetes
+  command: sysctl net.bridge.bridge-nf-call-iptables net.bridge.bridge-nf-call-ip6tables net.ipv4.ip_forward
+  register: sysctl_check
+
+- name: Show sysctl values
+  debug:
+    var: sysctl_check.stdout_lines
+
+- name: Download containerd binary
+  get_url:
+    url: https://github.com/containerd/containerd/releases/download/v2.0.0/containerd-2.0.0-linux-amd64.tar.gz
+    dest: /tmp/containerd-2.0.0-linux-amd64.tar.gz
+    mode: '0644'
+
+- name: Extract containerd into /usr/local
+  unarchive:
+    src: /tmp/containerd-2.0.0-linux-amd64.tar.gz
+    dest: /usr/local
+    remote_src: yes
+    extra_opts: [--strip-components=0]
+
+- name: Download containerd systemd service file
+  get_url:
+    url: https://raw.githubusercontent.com/containerd/containerd/main/containerd.service
+    dest: /tmp/containerd.service
+    mode: '0644'
+
+- name: Ensure systemd directory exists
+  file:
+    path: /usr/local/lib/systemd/system/
+    state: directory
+    mode: '0755'
+
+- name: Move containerd.service to systemd directory
+  command: mv /tmp/containerd.service /usr/local/lib/systemd/system/containerd.service
+  args:
+    creates: /usr/local/lib/systemd/system/containerd.service
+
+- name: Ensure containerd config directory exists
+  file:
+    path: /etc/containerd
+    state: directory
+    mode: '0755'
+
+
+- name: Generate default containerd config
+  command: containerd config default
+  register: containerd_config
+
+- name: Write containerd config
+  copy:
+    dest: /etc/containerd/config.toml
+    content: "{{ containerd_config.stdout }}"
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Enable SystemdCgroup in containerd config
+  replace:
+    path: /etc/containerd/config.toml
+    regexp: 'SystemdCgroup\s*=\s*false'
+    replace: 'SystemdCgroup = true'
+
+- name: Reload systemd daemon
+  systemd:
+    daemon_reload: yes
+
+- name: Enable and start containerd
+  systemd:
+    name: containerd
+    enabled: yes
+    state: started
+
+- name: Download runc binary
+  get_url:
+    url: https://github.com/opencontainers/runc/releases/download/v1.1.12/runc.amd64
+    dest: /usr/local/sbin/runc
+    mode: '0755'
+
+- name: Download CNI plugins
+  get_url:
+    url: "https://github.com/containernetworking/plugins/releases/download/v1.5.0/cni-plugins-linux-amd64-v1.5.0.tgz"
+    dest: "/tmp/cni-plugins-linux-amd64-v1.5.0.tgz"
+    mode: '0644'
+
+- name: Create CNI bin directory
+  file:
+    path: /opt/cni/bin
+    state: directory
+    mode: '0755'
+
+- name: Extract CNI plugins
+  unarchive:
+    src: "/tmp/cni-plugins-linux-amd64-v1.5.0.tgz"
+    dest: /opt/cni/bin
+    remote_src: true
+
+#- name: Update apt cache
+#  apt:
+#    update_cache: yes
+#    cache_valid_time: 3600
+
+- name: Install required packages
+  apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gpg
+      - net-tools
+    state: present
+    update_cache: yes
+
+- name: Ensure keyrings directory exists
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+
+#- name: Download Kubernetes GPG key
+#  get_url:
+#    url: https://pkgs.k8s.io/core:/stable:/v1.33/deb/Release.key
+#    dest: /tmp/kubernetes-apt-keyring.asc
+#    mode: '0644'
+#
+#- name: Convert GPG key to dearmored format
+#  shell: gpg --dearmor < /tmp/kubernetes-apt-keyring.asc > /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+#  args:
+#    creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+- name: Download and install Kubernetes GPG key
+  shell: curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.33/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+  args:
+    creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+- name: Ensure proper permissions for Kubernetes keyring
+  file:
+    path: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+    mode: '0644'
+
+- name: Add Kubernetes apt repository
+  copy:
+    dest: /etc/apt/sources.list.d/kubernetes.list
+    content: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.33/deb/ /"
+    mode: '0644'
+
+
+- name: Install kubelet, kubeadm, kubectl
+  apt:
+    name:
+      - kubelet
+      - kubeadm
+      - kubectl
+    state: present
+    update_cache: yes
+
+- name: Hold kubelet, kubeadm, kubectl at current version
+  dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - kubelet
+    - kubeadm
+    - kubectl
+
+- name: Configure crictl runtime endpoint
+  lineinfile:
+    path: /etc/crictl.yaml
+    line: "runtime-endpoint: unix:///var/run/containerd/containerd.sock"
+    create: yes
