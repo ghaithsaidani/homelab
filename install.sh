@@ -103,3 +103,7 @@ chmod 600 "$CONFIG_FILE"
 
 # run vagrant
 vagrant up
+
+# create cluster with ansible-playbook
+echo  -e "\033[1;32m# Creating cluster\033[0m"
+ANSIBLE_CONFIG=./ansible/ansible.cfg ansible-playbook -i ./ansible/inventory ./ansible/cluster-creation/main.yml
