@@ -3,6 +3,7 @@
 
 set -e
 
+
 # variables
 KEYS_DIR="$HOME/.ssh/vagrant_keys"
 CONFIG_FILE="$HOME/.ssh/config"

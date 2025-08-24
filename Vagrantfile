@@ -36,7 +36,7 @@ Vagrant.configure("2") do |config|
   (1..NUM_MASTERS).each do |i|
 
   config.vm.define "master#{i}" do |master|
-    master.vm.box = "generic/ubuntu2004"
+    master.vm.box = "generic/ubuntu2204"
     master.vm.hostname = "master#{i}"
     master.vm.network "private_network", ip: "10.0.1.#{i+10}"
     master.vm.provision "file", source: "~/.ssh/vagrant_keys/master#{i}_key.pub", destination: "#{VAGRANT_HOME}/master#{i}_key.pub"
@@ -58,7 +58,7 @@ Vagrant.configure("2") do |config|
   (1..NUM_WORKERS).each do |i|
 
   config.vm.define "worker#{i}" do |worker|
-      worker.vm.box = "generic/ubuntu2004"
+      worker.vm.box = "generic/ubuntu2204"
       worker.vm.hostname = "worker#{i}"
       worker.vm.network "private_network", ip: "10.0.1.#{i+100}"
       worker.vm.provision "file", source: "~/.ssh/vagrant_keys/worker#{i}_key.pub", destination: "#{VAGRANT_HOME}/worker#{i}_key.pub"
